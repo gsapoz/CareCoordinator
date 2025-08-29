@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime, time
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Index, UniqueConstraint
 
 #SPECS
 # You've just been hired by a growing healthcare startup that's struggling with their care team scheduling. 
@@ -30,11 +31,8 @@ class Provider(SQLModel, table=True):
     name: str
     home_zip: str
     max_hours: int = 40
+    skills: str #doulas, nurses, lactation specialists - comma seperated
     active: bool = True
-
-class ProviderSkill(SQLModel, table=True):
-    provider_id: int = Field(foreign_key="provider.id", primary_key=True)
-    skill: str = Field(primary_key=True)
 
 class ProviderAvailability(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -50,7 +48,7 @@ class Case(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     family_id: int = Field(foreign_key="family.id")
     title: str #Title of request
-    required_skills: str #"doulas", "lactation consultants", "nurses"
+    required_skills: str #"doulas", "lactation consultants", "nurses" 
     
 class Shift(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -66,4 +64,13 @@ class Assignment(SQLModel, table=True):
     provider_id: int = Field(foreign_key="provider.id")
     status: str = "requested" #"requested", "confirmed", "declined"
     message: str = "" #description for assignment given by provider
+ 
+    #Unique Constraint to prevent provider being added to the same shift twice
+    __table_args__ = (UniqueConstraint("shift_id", "provider_id", name="uq_shift_provider")),
+
+#Quick Algorithms ("Shortcuts")
+Index("ix_availability_weekday_provider", ProviderAvailability.weekday, ProviderAvailability.provider_id) #Providers who are available on weekdays
+Index("ix_shift_starts", Shift.starts) #all shifts starting after inputted datetime
+Index("ix_shift_ends", Shift.ends) #all shifts ending before inputted datetime
+
 
