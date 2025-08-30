@@ -30,7 +30,6 @@ class Provider(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     home_zip: str
-    max_hours: int = 40
     skills: str #doulas, nurses, lactation specialists - comma seperated
     active: bool = True
 

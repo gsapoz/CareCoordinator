@@ -1,9 +1,15 @@
 import { useState } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 
 const BASE_URL = "http://localhost:8000";
+
+//TO-DO (URGENT):::: 
+//******** */
+//******** */
+//Set Availability (Days of the week provider can work)
+//******* */
+//******** */
 
 // #Problem 2
 // # The company has providers with different specialties, availability patterns, and preferences. 
@@ -128,17 +134,7 @@ export default function ProvidersPage() {
             />
           </label>
 
-          <label>
-            Max hours
-            <input
-              type="number"
-              value={form.max_hours}
-              onChange={(e) =>
-                setForm({ ...form, max_hours: Number(e.target.value) })
-              }
-              min={1}
-            />
-          </label>
+          
 
           <label>
             Skills 
@@ -172,7 +168,7 @@ export default function ProvidersPage() {
                 <th>ID</th>
                 <th>Name</th>
                 <th>ZIP</th>
-                <th>Max hrs</th>
+                <th>Days Available</th>
                 <th>Active</th>
                 <th>Skills</th>
               </tr>
