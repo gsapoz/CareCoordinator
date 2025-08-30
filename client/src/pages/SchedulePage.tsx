@@ -3,9 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 
 const BASE_URL = "http://localhost:8000";
 
-type Shift = { id: number; case_id: number; starts: string; ends: string; zip: string; required_skills: string };
-type Assignment = { id?: number; shift_id?: number; provider_id?: number | null; status: string; message?: string };
-
 // #Problem 3
 // #A family urgently needed overnight newborn care support, but the coordinator spent 3 hours calling providers to find someone available and qualified. 
 // # Two providers showed up because of a miscommunication. Another family complained that they've had 5 different providers in one week when they specifically requested consistency.
@@ -33,10 +30,12 @@ type Assignment = { id?: number; shift_id?: number; provider_id?: number | null;
 //     #Unique Constraint to prevent provider being added to the same shift twice
 //     __table_args__ = (UniqueConstraint("shift_id", "provider_id", name="uq_shift_provider")),
 
+type Shift = { id: number; case_id: number; starts: string; ends: string; zip: string; required_skills: string };
+type Assignment = { id?: number; shift_id?: number; provider_id?: number | null; status: string; message?: string };
 
 export default function SchedulePage() {
 
   return (
-    <div/>
+    <div>Hey</div>
   );
 }

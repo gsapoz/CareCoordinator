@@ -5,8 +5,8 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import './index.css'
 import App from './App.tsx'
 
-// import SchedulePage from "./pages/SchedulePage";
-// import ShiftsPage from "./pages/ShiftsPage";
+import SchedulePage from "./pages/SchedulePage";
+import ShiftsPage from "./pages/ShiftsPage";
 import ProvidersPage from "./pages/ProvidersPage";
 
 const queryClient = new QueryClient();
@@ -27,7 +27,7 @@ const router = createBrowserRouter([
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-        <App />
+      <RouterProvider router={router} /> {/* Render pages on startup */}
     </QueryClientProvider>
   </StrictMode>,
 )
