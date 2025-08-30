@@ -4,7 +4,7 @@ from server.db import init_db
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.db import init_db
-from server.routers import providers, shifts, assignments, schedule
+from server.routers import providers, shifts, assignments, schedule, availabilities
 
 
 @asynccontextmanager
@@ -30,3 +30,4 @@ app.include_router(providers.router, prefix="/providers", tags=["providers"])
 app.include_router(shifts.router)
 app.include_router(assignments.router)
 app.include_router(schedule.router)
+app.include_router(availabilities.router, prefix="/availability", tags=["availability"])
