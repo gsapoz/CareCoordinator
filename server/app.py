@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-app.include_router(providers.router)
+app.include_router(providers.router, prefix="/providers", tags=["providers"])
 app.include_router(shifts.router)
 app.include_router(assignments.router)
 app.include_router(schedule.router)
