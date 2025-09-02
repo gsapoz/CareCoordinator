@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -32,10 +32,29 @@ type Provider = {
   id?: number;
   name: string;
   home_zip: string;
-  max_hours: number;
   active: boolean;
   skills: string; 
 };
+
+// class ProviderAvailability(SQLModel, table=True):
+//     id: Optional[int] = Field(default=None, primary_key=True)
+//     provider_id: int = Field(foreign_key="provider.id")
+//     weekday: int #0-6 Monday - Sunday
+//     start: time
+//     end: time
+
+type Availability = {
+  id?: number;
+  provider_id: number;
+  weekday: number; // 0-6
+  start: string; //HH:MM
+  end: string; //HH:MM
+}
+
+const DAYS_FULL = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAYS_TITLES = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const DEFAULT_START = "08:00";
+const DEFAULT_END   = "18:00";
 
 export default function ProvidersPage() {
   const qc = useQueryClient();
@@ -46,28 +65,142 @@ export default function ProvidersPage() {
       (await axios.get(`${BASE_URL}/providers`)).data,
   });
 
+  const { data: availability = [] } = useQuery({
+    queryKey: ["availability"],
+    queryFn: async (): Promise<Availability[]> => (await axios.get(`${BASE_URL}/availability`)).data,
+  });
+
+   // Query/Map for ProviderAvailability to weekday selection
+  const availMap = useMemo(() => {
+    const m = new Map<number, Set<number>>();
+    for (const row of availability) {
+      if (!m.has(row.provider_id)) m.set(row.provider_id, new Set());
+      m.get(row.provider_id)!.add(row.weekday);
+    }
+    return m;
+  }, [availability]);
+
   const [form, setForm] = useState<Provider>({
     name: "",
     home_zip: "",
-    max_hours: 40,
     active: true,
     skills: "",
   });
+  // Declare dependencies for availability selections dropdown and display
+  const [daysDropdownOpen, setDaysDropdownOpen] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set()); 
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const create = useMutation({
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDaysDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+   const toggleDayInForm = (idx: number) => {
+    const next = new Set(selectedDays);
+    if (next.has(idx)) next.delete(idx);
+    else next.add(idx);
+    setSelectedDays(next);
+  };
+
+  // Mutations
+  const createProvider = useMutation({
     mutationFn: async (p: Provider) =>
-      (await axios.post(`${BASE_URL}/providers`, p)).data,
+      (await axios.post(`${BASE_URL}/providers`, p)).data as Provider,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["providers"] });
-      setForm({ name: "", home_zip: "", max_hours: 40, active: true, skills: "" });
+    },
+  });
+
+  const bulkCreateAvailability = useMutation({
+    mutationFn: async (items: Availability[]) =>
+      (await axios.post(`${BASE_URL}/availability/bulk`, { items })).data as Availability[],
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["availability"] });
+    },
+  });
+
+  // Toggle each day in provider row
+  const toggleDayForProvider = useMutation({
+    mutationFn: async (payload: { provider_id: number; weekday: number; isOn: boolean }) => {
+      const { provider_id, weekday, isOn } = payload;
+      if (isOn) {
+        // Delete 
+        await axios.delete(`${BASE_URL}/availability/by-key`, {
+          data: { provider_id, weekday, start: DEFAULT_START, end: DEFAULT_END },
+        });
+        return { toggled: "off", provider_id, weekday };
+      } else {
+        // Create 
+        await axios.post(`${BASE_URL}/availability`, {
+          provider_id,
+          weekday,
+          start: DEFAULT_START,
+          end: DEFAULT_END,
+        });
+        return { toggled: "on", provider_id, weekday };
+      }
+    },
+    onMutate: async ({ provider_id, weekday, isOn }) => {
+      await qc.cancelQueries({ queryKey: ["availability"] });
+      const prev = qc.getQueryData<Availability[]>(["availability"]) || [];
+      let next: Availability[];
+      if (isOn) {
+        // remove
+        next = prev.filter(
+          a =>
+            !(
+              a.provider_id === provider_id &&
+              a.weekday === weekday &&
+              a.start === DEFAULT_START &&
+              a.end === DEFAULT_END
+            )
+        );
+      } else {
+        // add
+        next = prev.concat([{ provider_id, weekday, start: DEFAULT_START, end: DEFAULT_END }]);
+      }
+      qc.setQueryData(["availability"], next);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["availability"], ctx.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["availability"] });
     },
   });
 
   const canSubmit =
     form.name.trim().length > 0 &&
-    form.home_zip.trim().length >= 5 &&
-    Number.isFinite(form.max_hours) &&
-    form.max_hours > 0;
+    form.home_zip.trim().length >= 5 
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    const created = await createProvider.mutateAsync(form);
+
+    if (created?.id && selectedDays.size > 0) {
+      const items: Availability[] = Array.from(selectedDays).map((weekday) => ({
+        provider_id: created.id!,
+        weekday,
+        start: DEFAULT_START,
+        end: DEFAULT_END,
+      }));
+      await bulkCreateAvailability.mutateAsync(items);
+    }
+
+    // reset form
+    setForm({ name: "", home_zip: "", active: true, skills: "" });
+    setSelectedDays(new Set());
+    setDaysDropdownOpen(false);
+  }
 
   return (
     <>
@@ -93,9 +226,19 @@ export default function ProvidersPage() {
         .btn { appearance:none; border:1px solid #c8cdd4; background:#f6f8fa; padding:6px 10px; border-radius:4px; font-size:12px; cursor:pointer; }
         .btn:hover { background:#eef1f4; }
         .btn[disabled]{ opacity:.6; cursor:not-allowed; }
-        @media (max-width: 800px) {
-          .form { grid-template-columns: 1fr 1fr; }
-        }
+        @media (max-width: 800px) { .form { grid-template-columns: 1fr 1fr; } }
+
+        /* NEW: Days dropdown + chips */
+        .dropdown { position: relative; }
+        .dropdownBtn { border:1px solid #c8cdd4; background:#fff; padding:6px 10px; border-radius:4px; font-size:12px; cursor:pointer; width:100%; text-align:left; }
+        .dropdownMenu { position:absolute; top:100%; left:0; width: 220px; background:#fff; border:1px solid #d0d7de; border-radius:4px; padding:8px; z-index:10; box-shadow: 0 4px 10px rgba(0,0,0,.06); }
+        .dayOption { display:flex; align-items:center; gap:8px; padding:4px 0; }
+        .dayOption input { transform: translateY(1px); }
+
+        .daygroup { display:flex; gap:4px; }
+        .daybtn { border:1px solid #c8cdd4; background:#fff; padding:3px 7px; border-radius:4px; font-size:12px; cursor:pointer; }
+        .daybtn.on { background:#e6f2ff; border-color:#7fb3ff; }
+        .daybtn:disabled { opacity:.6; cursor:not-allowed; }
       `}</style>
 
       <div className="sheet">
@@ -106,14 +249,7 @@ export default function ProvidersPage() {
           </div>
         </div>
 
-        {/* Create form */}
-        <form
-          className="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (canSubmit) create.mutate(form);
-          }}
-        >
+        <form className="form" onSubmit={handleCreate}>
           <label>
             Name
             <input
@@ -134,10 +270,8 @@ export default function ProvidersPage() {
             />
           </label>
 
-          
-
           <label>
-            Skills 
+            Skills
             <input
               type="text"
               value={form.skills}
@@ -145,6 +279,30 @@ export default function ProvidersPage() {
               placeholder="Doula, Nurse, Lactation"
             />
           </label>
+
+          <div className="dropdown" ref={dropdownRef}>
+            <button
+              type="button"
+              className="dropdownBtn"
+              onClick={() => setDaysDropdownOpen((s) => !s)}
+            >
+              Days Available ▾
+            </button>
+            {daysDropdownOpen && (
+              <div className="dropdownMenu">
+                {DAYS_TITLES.map((label, idx) => (
+                  <label key={idx} className="dayOption">
+                    <input
+                      type="checkbox"
+                      checked={selectedDays.has(idx)}
+                      onChange={() => toggleDayInForm(idx)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
 
           <label className="check" title="Active">
             <input
@@ -155,8 +313,8 @@ export default function ProvidersPage() {
             Active
           </label>
 
-          <button className="btn" type="submit" disabled={!canSubmit || create.isPending}>
-            {create.isPending ? "Saving…" : "Add Provider"}
+          <button className="btn" type="submit" disabled={!canSubmit || createProvider.isPending}>
+            {createProvider.isPending ? "Saving…" : "Add Provider"}
           </button>
         </form>
 
@@ -189,16 +347,44 @@ export default function ProvidersPage() {
                   <td colSpan={6} className="muted">No providers yet.</td>
                 </tr>
               )}
-              {providers.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.id}</td>
-                  <td>{p.name}</td>
-                  <td>{p.home_zip}</td>
-                  <td style={{ textAlign: "right" }}>{p.max_hours}</td>
-                  <td>{p.active ? "Yes" : "No"}</td>
-                  <td>{p.skills || "—"}</td>
-                </tr>
-              ))}
+
+              {providers.map((p) => {
+                const set = availMap.get(p.id!) ?? new Set<number>();
+                return (
+                  <tr key={p.id}>
+                    <td>{p.id}</td>
+                    <td>{p.name}</td>
+                    <td>{p.home_zip}</td>
+                    <td>
+                      <div className="daygroup">
+                        {DAYS_FULL.map((lbl, i) => {
+                          const isOn = set.has(i);
+                          return (
+                            <button
+                              key={i}
+                              className={`daybtn ${isOn ? "on" : ""}`}
+                              title={DAYS_TITLES[i]}
+                              disabled={toggleDayForProvider.isPending}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                toggleDayForProvider.mutate({
+                                  provider_id: p.id!,
+                                  weekday: i,
+                                  isOn,
+                                });
+                              }}
+                            >
+                              {lbl}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td>{p.active ? "Yes" : "No"}</td>
+                    <td>{p.skills || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -207,4 +393,3 @@ export default function ProvidersPage() {
     </>
   );
 }
-
