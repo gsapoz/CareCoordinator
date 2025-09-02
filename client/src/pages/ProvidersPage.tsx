@@ -133,6 +133,7 @@ export default function ProvidersPage() {
         // Delete 
         await axios.delete(`${BASE_URL}/availability/by-key`, {
           data: { provider_id, weekday, start: DEFAULT_START, end: DEFAULT_END },
+          headers: { "Content-Type": "application/json" }, //sometimes the API receives content instead of JSON so this prevents 422 error
         });
         return { toggled: "off", provider_id, weekday };
       } else {

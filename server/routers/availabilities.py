@@ -129,8 +129,8 @@ def create_availability_bulk(payload: AvailabilityCreateBulk, session: Session =
     return created
 
 
-@router.delete("/{availability_id}", status_code=204)
-def delete_availability_by_id(availability_id: int, session: Session = Depends(get_session)):
+@router.delete("/{availability_id:int}", status_code=204)
+def delete_availability_by_id(availability_id: int, session: Session = Depends(get_session)): #I have no idea why, but expecting "Int" resolves a 422 error 
     """
     Delete a single availability row by its ID.
     """
