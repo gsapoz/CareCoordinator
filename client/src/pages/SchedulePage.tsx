@@ -82,6 +82,21 @@ export default function SchedulePage() {
     },
   });
 
+
+  const generateData = useMutation({
+    mutationFn: async () =>
+      (await axios.post(`${BASE_URL}/ai/autogen`, {
+        n_providers: 8,   // tweak if you want
+        n_shifts: 16,     // tweak if you want
+        zip_pool: ["98101","98103","98107","98109","98115","98052"]
+      })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["providers"] });
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+      qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
+  });
+
   const totals = useMemo(() => {
     const total = shifts.length;
     const filled = assignments.filter(a => a.provider_id != null).length;
@@ -180,8 +195,12 @@ export default function SchedulePage() {
             <div className="meta">Click "Run Scheduler" to automatically assign Providers to Shifts</div>
             <div className="meta">Click "Generate Data" to automatically generate Providers and Shifts</div>
           </div>
-          <button className="btn" onClick={() => run.mutate()} disabled={run.isPending}>
-            {run.isPending ? "Scheduling…" : "Generate Data"}
+          <button
+            className="btn"
+            onClick={() => generateData.mutate()}
+            disabled={generateData.isPending}
+          >
+            {generateData.isPending ? "Generating…" : "Generate Data"}
           </button>
           <button className="btn" onClick={() => run.mutate()} disabled={run.isPending}>
             {run.isPending ? "Scheduling…" : "Run Scheduler"}
