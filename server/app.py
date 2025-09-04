@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from server.db import init_db
 from server.routers import providers, shifts, assignments, schedule, availabilities
 
+import os
+from dotenv import load_dotenv
+load_dotenv #to implement OpenAI LLM
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +28,10 @@ app.add_middleware(
     allow_methods=["*"], 
     allow_headers=["*"]
 )
+
+openai_key = os.getenv("OPENAI_API_KEY")
+if not openai_key:
+    print("⚠️ Warning: OPENAI_API_KEY not set in .env")
 
 app.include_router(providers.router, prefix="/providers", tags=["providers"])
 app.include_router(shifts.router, prefix="/shifts", tags=["shifts"])
