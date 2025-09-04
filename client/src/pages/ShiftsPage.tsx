@@ -58,6 +58,12 @@ type Shift = {
   required_skills: string; 
 };
 
+const SKILL_OPTIONS = [
+  "Doula",
+  "Nurse", 
+  "Lactation Consultant"
+] as const;
+
 export default function ShiftsPage() {
   const qc = useQueryClient();
 
@@ -215,13 +221,16 @@ export default function ShiftsPage() {
           </label>
 
           <label>
-            Required skills (CSV)
-            <input
-              type="text"
+            Required skill
+            <select
               value={form.required_skills}
               onChange={(e) => setForm({ ...form, required_skills: e.target.value })}
-              placeholder="Doula,RN,IBCLC"
-            />
+            >
+              <option value="">Select…</option>
+              {SKILL_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           </label>
 
           <div />

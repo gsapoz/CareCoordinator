@@ -31,7 +31,14 @@ const BASE_URL = "http://localhost:8000";
 //     #Unique Constraint to prevent provider being added to the same shift twice
 //     __table_args__ = (UniqueConstraint("shift_id", "provider_id", name="uq_shift_provider")),
 
-type Shift = { id: number; case_id: number; starts: string; ends: string; zip: string; required_skills: string };
+type Shift = { 
+  id: number; 
+  //case_id: number; 
+  starts: string; 
+  ends: string; 
+  zip: string; 
+  required_skills: string 
+};
 type Assignment = { id?: number; shift_id?: number; provider_id?: number | null; status: string; message?: string };
 
 export default function SchedulePage() {
@@ -216,7 +223,7 @@ export default function SchedulePage() {
                   {shifts.length > 0 ? shifts.map((s) => (
                     <tr key={s.id}>
                       <td>#{s.id}</td>
-                      <td>{s.case_id}</td>
+                      {/* <td>{s.case_id}</td> */}
                       <td>{new Date(s.starts).toLocaleString()}</td>
                       <td>{new Date(s.ends).toLocaleString()}</td>
                       <td>{s.required_skills}</td>

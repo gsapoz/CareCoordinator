@@ -56,6 +56,12 @@ const DAYS_TITLES = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturda
 const DEFAULT_START = "08:00";
 const DEFAULT_END   = "18:00";
 
+const SKILL_OPTIONS = [
+  "Doula",
+  "Nurse", 
+  "Lactation Consultant"
+] as const;
+
 export default function ProvidersPage() {
   const qc = useQueryClient();
 
@@ -106,6 +112,36 @@ export default function ProvidersPage() {
     if (next.has(idx)) next.delete(idx);
     else next.add(idx);
     setSelectedDays(next);
+  };
+
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const skillsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (skillsRef.current && !skillsRef.current.contains(e.target as Node)) {
+        setSkillsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // Helpers to manage CSV <-> Set
+  const skillsSet = useMemo(() => {
+    return new Set(
+      form.skills
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean)
+    );
+  }, [form.skills]);
+
+  const toggleSkillInForm = (skill: string) => {
+    const next = new Set(skillsSet);
+    if (next.has(skill)) next.delete(skill);
+    else next.add(skill);
+    // back to CSV
+    setForm(f => ({ ...f, skills: Array.from(next).join(",") }));
   };
 
   // Mutations
@@ -271,15 +307,25 @@ export default function ProvidersPage() {
             />
           </label>
 
-          <label>
-            Skills
-            <input
-              type="text"
-              value={form.skills}
-              onChange={(e) => setForm({ ...form, skills: e.target.value })}
-              placeholder="Doula, Nurse, Lactation"
-            />
-          </label>
+          <div className="dropdown" ref={skillsRef}>
+            <button type="button" className="dropdownBtn" onClick={() => setSkillsOpen(s => !s)}>
+              {skillsSet.size === 0 ? "Skills ▾" : `${skillsSet.size} selected ▾`}
+            </button>
+            {skillsOpen && (
+              <div className="dropdownMenu">
+                {SKILL_OPTIONS.map((skill) => (
+                  <label key={skill} className="optionRow">
+                    <input
+                      type="checkbox"
+                      checked={skillsSet.has(skill)}
+                      onChange={() => toggleSkillInForm(skill)}
+                    />
+                    <span>{skill}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="dropdown" ref={dropdownRef}>
             <button
