@@ -4,7 +4,7 @@ from server.db import init_db
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.db import init_db
-from server.routers import providers, shifts, assignments, schedule, availabilities
+from server.routers import providers, shifts, assignments, schedule, availabilities, ai
 
 import os
 from dotenv import load_dotenv
@@ -31,10 +31,11 @@ app.add_middleware(
 
 openai_key = os.getenv("OPENAI_API_KEY")
 if not openai_key:
-    print("⚠️ Warning: OPENAI_API_KEY not set in .env")
+    print("Warning: OPENAI_API_KEY not set in .env")
 
 app.include_router(providers.router, prefix="/providers", tags=["providers"])
 app.include_router(shifts.router, prefix="/shifts", tags=["shifts"])
 app.include_router(assignments.router)
 app.include_router(schedule.router)
 app.include_router(availabilities.router, prefix="/availability", tags=["availability"])
+app.include_router(ai.router)
