@@ -43,15 +43,15 @@ class ProviderAvailability(SQLModel, table=True):
 #Problem 3
 #A family urgently needed overnight newborn care support, but the coordinator spent 3 hours calling providers to find someone available and qualified. 
 # Two providers showed up because of a miscommunication. Another family complained that they've had 5 different providers in one week when they specifically requested consistency.
-class Case(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    family_id: int = Field(foreign_key="family.id")
-    title: str #Title of request
-    required_skills: str #"doulas", "lactation consultants", "nurses" 
+# class Case(SQLModel, table=True):
+#     id: Optional[int] = Field(default=None, primary_key=True)
+#     family_id: int = Field(foreign_key="family.id")
+#     title: str #Title of request
+#     required_skills: str #"doulas", "lactation consultants", "nurses" 
     
 class Shift(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    case_id: int = Field(foreign_key="case.id")
+    # case_id: int = Field(foreign_key="case.id")
     starts: datetime #start time
     ends: datetime #end time
     zip: str #location of shift 

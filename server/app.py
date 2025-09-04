@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(providers.router, prefix="/providers", tags=["providers"])
-app.include_router(shifts.router)
+app.include_router(shifts.router, prefix="/shifts", tags=["shifts"])
 app.include_router(assignments.router)
 app.include_router(schedule.router)
 app.include_router(availabilities.router, prefix="/availability", tags=["availability"])
