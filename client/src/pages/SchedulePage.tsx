@@ -39,7 +39,22 @@ type Shift = {
   zip: string; 
   required_skills: string 
 };
-type Assignment = { id?: number; shift_id?: number; provider_id?: number | null; status: string; message?: string };
+
+type Provider = {
+  id: number;
+  name: string;
+  home_zip: string;
+  active: boolean;
+  skills: string; // CSV
+};
+
+type Assignment = { 
+  id?: number; 
+  shift_id?: number; 
+  provider_id?: number | null; 
+  status: string; 
+  message?: string 
+};
 
 export default function SchedulePage() {
   const qc = useQueryClient();
@@ -47,6 +62,11 @@ export default function SchedulePage() {
   const { data: shifts = [], isLoading: shiftsLoading, error: shiftsError } = useQuery({
     queryKey: ["shifts"],
     queryFn: async (): Promise<Shift[]> => (await axios.get(`${BASE_URL}/shifts`)).data,
+  });
+
+  const { data: providers = [], isLoading: provLoading, error: provError } = useQuery({
+    queryKey: ["providers"],
+    queryFn: async (): Promise<Provider[]> => (await axios.get(`${BASE_URL}/providers`)).data,
   });
 
   const { data: assignments = [], isLoading: asgLoading, error: asgError } = useQuery({
@@ -117,7 +137,7 @@ export default function SchedulePage() {
 
         .grid {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
           gap: 14px;
         }
         @media (min-width: 980px) {
@@ -157,8 +177,12 @@ export default function SchedulePage() {
         <div className="toolbar">
           <div>
             <div className="title">Provider Schedule</div>
-            <div className="meta"></div>
+            <div className="meta">Click "Run Scheduler" to automatically assign Providers to Shifts</div>
+            <div className="meta">Click "Generate Data" to automatically generate Providers and Shifts</div>
           </div>
+          <button className="btn" onClick={() => run.mutate()} disabled={run.isPending}>
+            {run.isPending ? "Scheduling…" : "Generate Data"}
+          </button>
           <button className="btn" onClick={() => run.mutate()} disabled={run.isPending}>
             {run.isPending ? "Scheduling…" : "Run Scheduler"}
           </button>
@@ -170,67 +194,65 @@ export default function SchedulePage() {
           <div><div className="label">Unfilled Shifts</div><div className="value">{totals.unfilled}</div></div>
         </div>
 
-        <div className="grid">
-          {/* Assignments */}
+        <div className="grid2">
+
+          {/* Providers */}
           <div>
-            <div className="muted" style={{marginBottom: 6}}>Provider Assignments</div>
-            {asgLoading && <div className="muted">Loading…</div>}
-            {asgError && <div className="err">Failed to load assignments.</div>}
+            <div className="sectionTitle">Providers</div>
+            <div className="meta">Click "Generate Data" in the header to automatically generate Providers</div>
+            <div className="meta">To manually add and track your own proivders, <a href="providers">click here</a></div>
+            {provLoading && <div className="muted">Loading…</div>}
+            {provError && <div className="err">Failed to load providers.</div>}
             <div className="tablewrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Shift</th>
-                    <th>Provider</th>
-                    <th>Status</th>
-                    <th>Message</th>
+                    <th>ID</th><th>Name</th><th>ZIP</th><th>Skills</th><th>Active</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {assignments.length > 0 ? assignments.map((a) => (
-                    <tr key={a.id ?? a.shift_id}>
-                      <td>#{a.shift_id}</td>
-                      <td>{a.provider_id ?? <span className="muted">unfilled</span>}</td>
-                      <td>{a.status ?? ""}</td>
-                      <td className="muted">{a.message || ""}</td>
+                  {providers.length > 0 ? providers.map((p) => (
+                    <tr key={p.id}>
+                      <td>#{p.id}</td>
+                      <td>{p.name}</td>
+                      <td>{p.home_zip}</td>
+                      <td>{p.skills || "—"}</td>
+                      <td>{p.active ? "Yes" : "No"}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={4} className="muted">No assignments.</td></tr>
+                    <tr><td colSpan={5} className="muted">No providers.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
+          <br />
           {/* Shifts */}
           <div>
-            <div className="muted" style={{marginBottom: 6}}>Shifts</div>
+            <div className="sectionTitle">Shifts</div>
+            <div className="meta">Click "Generate Data" in the header to automatically generate Shifts</div>
+            <div className="meta">To manually add and track your own shifts, <a href="shifts">click here</a></div>
             {shiftsLoading && <div className="muted">Loading…</div>}
             {shiftsError && <div className="err">Failed to load shifts.</div>}
             <div className="tablewrap">
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Case</th>
-                    <th>Starts</th>
-                    <th>Ends</th>
-                    <th>Skills</th>
-                    <th>ZIP</th>
+                    <th>ID</th><th>Starts</th><th>Ends</th><th>Required Skill</th><th>ZIP</th>
                   </tr>
                 </thead>
                 <tbody>
                   {shifts.length > 0 ? shifts.map((s) => (
                     <tr key={s.id}>
                       <td>#{s.id}</td>
-                      {/* <td>{s.case_id}</td> */}
                       <td>{new Date(s.starts).toLocaleString()}</td>
                       <td>{new Date(s.ends).toLocaleString()}</td>
                       <td>{s.required_skills}</td>
                       <td>{s.zip}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={6} className="muted">No shifts.</td></tr>
+                    <tr><td colSpan={5} className="muted">No shifts.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -238,6 +260,33 @@ export default function SchedulePage() {
           </div>
         </div>
 
+        {/* Provider Assignments  */}
+        <div style={{ marginTop: 14 }}>
+          <div className="sectionTitle">Provider Assignments</div>
+          {asgLoading && <div className="muted">Loading…</div>}
+          {asgError && <div className="err">Failed to load assignments.</div>}
+          <div className="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Shift</th><th>Provider</th><th>Status</th><th>Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.length > 0 ? assignments.map((a) => (
+                  <tr key={a.id ?? a.shift_id}>
+                    <td>#{a.shift_id}</td>
+                    <td>{a.provider_id ?? <span className="muted">unfilled</span>}</td>
+                    <td>{a.status ?? ""}</td>
+                    <td className="muted">{a.message || ""}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={4} className="muted">No assignments.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </>
   );
