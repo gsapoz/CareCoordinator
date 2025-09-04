@@ -10,6 +10,7 @@ from server.db import get_session
 from server.models import Provider, Shift, ProviderAvailability
 
 # For this to work remember to create .env file then add OpenAI Key there 
+from openai import OpenAI
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -21,7 +22,7 @@ class AutoGenRequest(BaseModel):
     # Optional window to place shifts into (defaults = next 7 days)
     start: Optional[datetime] = None
     end: Optional[datetime] = None
-    zip_pool: List[str] = ["98101","98103","98107","98109","98115","98052"]
+    zip_pool: List[str] = ["98101","98102","98103","98104","98105","98106, 98107, 98108"]
 
 class AutoGenResult(BaseModel):
     created_providers: int
