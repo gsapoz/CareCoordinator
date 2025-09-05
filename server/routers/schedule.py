@@ -89,39 +89,36 @@ def provider_has_conflict(session: Session, provider_id: int, shift: Shift) -> b
             return True
     return False
 
-
 @router.post("/run")
-def run_scheduler(
-    start: datetime = Query(..., description="ISO start of scheduling window"),
-    end: datetime = Query(..., description="ISO end of scheduling window"),
-    session: Session = Depends(get_session),
-):
-    #Considers all unfilled shifts, then picks the closest provider based on zipcode who is available and isn't double booked
-
-    # Load available providers
+def run_scheduler(session: Session = Depends(get_session)):
+    #removed start/end date parameters so we assign next available provider to all unfilled shifts 
+    
+    # Active providers
     providers = session.exec(select(Provider).where(Provider.active == True)).all()
 
-    # Load shifts in window
-    shifts = session.exec(
-        select(Shift).where(Shift.starts >= start, Shift.ends <= end)
-    ).all()
+    # Iterate all shifts, earliest first
+    shifts = session.exec(select(Shift).order_by(Shift.starts)).all()
 
-    # Preload assignments to see which shifts already have a provider
-    assigned_shift_ids = set(
-        a.shift_id for a in session.exec(select(Assignment)).all() if a.shift_id is not None
-    )
+    # Track filled shifts
+    assigned_shift_ids = {
+        a.shift_id
+        for a in session.exec(select(Assignment)).all()
+        if a.shift_id is not None
+    }
 
     created = 0
+
     for sh in shifts:
         if sh.id in assigned_shift_ids:
-            continue  # already has an assignment
+            continue  # already assigned
 
-        # Filter providers by skill match (CSV contains required skill)
+        # Gather eligible providers
         candidates = []
         for p in providers:
             if not p.skills:
                 continue
-            # required_skills is a single string for your model; check simple substring or split
+
+            # Exact skill match (your model stores a single required skill string)
             skill_ok = any(
                 s.strip().lower() == sh.required_skills.strip().lower()
                 for s in p.skills.split(",")
@@ -129,30 +126,32 @@ def run_scheduler(
             if not skill_ok:
                 continue
 
+            # Availability + no overlap
             if not provider_available_on_shift(session, p.id, sh):
                 continue
             if provider_has_conflict(session, p.id, sh):
                 continue
 
+            # Distance score
             dist = zip_distance(p.home_zip, sh.zip)
             candidates.append((dist, p))
 
         if not candidates:
-            # nobody fits – leave unfilled
-            continue
+            continue  # leave unfilled if no eligible provider
 
-        # pick nearest
+        # Choose nearest
         candidates.sort(key=lambda t: t[0])
-        _, chosen = candidates[0]
+        best_dist, chosen = candidates[0]
 
         session.add(
             Assignment(
                 shift_id=sh.id,
                 provider_id=chosen.id,
                 status="confirmed",
-                message=f"Auto-scheduled (distance {candidates[0][0]:.1f} mi)",
+                message=f"Auto-scheduled (distance {best_dist:.1f} mi)",
             )
         )
+        assigned_shift_ids.add(sh.id)
         created += 1
 
     session.commit()

@@ -75,13 +75,12 @@ export default function SchedulePage() {
   });
 
   const run = useMutation({
-    mutationFn: async () => (await axios.post(`${BASE_URL}/schedule/run?start=2025-08-25&end=2025-09-01`)).data,
+    mutationFn: async () => (await axios.post(`${BASE_URL}/schedule/run`)).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assignments"] });
       qc.invalidateQueries({ queryKey: ["shifts"] });
     },
   });
-
 
   const generateData = useMutation({
     mutationFn: async () =>

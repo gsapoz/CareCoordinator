@@ -9,4 +9,4 @@ if (!zipA || !zipB) {
 
 const dist = zipcodes.distance(zipA, zipB);
 // zipcodes.distance returns null if invalid 
-//console.log(typeof dist === "number" ? dist : -1);
+console.log(typeof dist === "number" ? dist : -1);
