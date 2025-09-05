@@ -52,6 +52,7 @@ class ProviderAvailability(SQLModel, table=True):
 class Shift(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     # case_id: int = Field(foreign_key="case.id")
+    family_id: int = Field(foreign_key="family.id") #Use as a stand-in for case number because the mvp has it as one-to-one rather than one-to-many
     starts: datetime #start time
     ends: datetime #end time
     zip: str #location of shift 

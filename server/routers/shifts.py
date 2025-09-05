@@ -10,7 +10,7 @@ from server.models import Shift
 router = APIRouter()
 
 class ShiftCreate(BaseModel):
-    # case_id: int
+    family_id: int
     starts: datetime
     ends: datetime
     zip: str
@@ -51,7 +51,7 @@ def create_shift(payload: ShiftCreate, session: Session = Depends(get_session)):
         raise HTTPException(status_code=400, detail="ends must be after starts")
 
     row = Shift(
-        # case_id=payload.case_id,
+        family_id=payload.family_id,
         starts=starts,
         ends=ends,
         zip=payload.zip,

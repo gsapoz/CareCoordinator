@@ -4,7 +4,7 @@ from server.db import init_db
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.db import init_db
-from server.routers import providers, shifts, assignments, schedule, availabilities, ai
+from server.routers import providers, shifts, assignments, schedule, availabilities, ai, families
 
 import os
 from dotenv import load_dotenv
@@ -39,3 +39,4 @@ app.include_router(assignments.router)
 app.include_router(schedule.router)
 app.include_router(availabilities.router, prefix="/availability", tags=["availability"])
 app.include_router(ai.router)
+app.include_router(families.router)

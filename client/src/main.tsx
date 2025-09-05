@@ -8,6 +8,7 @@ import App from './App.tsx'
 import SchedulePage from "./pages/SchedulePage";
 import ShiftsPage from "./pages/ShiftsPage";
 import ProvidersPage from "./pages/ProvidersPage";
+import FamiliesPage from "./pages/FamiliesPage"
 
 const queryClient = new QueryClient();
 
@@ -18,7 +19,8 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <SchedulePage /> },      // "/"
       { path: "shifts", element: <ShiftsPage /> },     // "/shifts"
-      { path: "providers", element: <ProvidersPage /> } // "/providers"
+      { path: "providers", element: <ProvidersPage /> }, // "/providers"
+      { path: "families", element: <FamiliesPage /> } // "/families"
     ],
   },
 ]);
