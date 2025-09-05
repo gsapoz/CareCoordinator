@@ -1,9 +1,159 @@
-from fastapi import APIRouter
+from __future__ import annotations
+from typing import Dict, Tuple, List, Optional, Set
+from datetime import datetime, time
+import math
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlmodel import Session, select, col
+
+from server.db import get_session
+from server.models import Provider, ProviderAvailability, Shift, Assignment
+
+router = APIRouter(prefix="/schedule", tags=["schedule"])
+
+import subprocess 
+from functools import lru_cache
+
+@lru_cache(maxsize=2048)
+def zip_distance(zip_a: str, zip_b: str) -> float:
+    #uses Node to implement the zipcodes npm package, returns miles (float) if not null
+    try:
+        result = subprocess.run(
+            ["node", "ziphelper.js", zip_a, zip_b],
+            capture_output=True,
+            text=True,
+            cwd="client",  
+            check=False,
+        )
+        val = result.stdout.strip()
+        d = float(val)
+        if d < 0:
+            return float("inf")
+        return d
+    except Exception:
+        return float("inf")
+
+
+def overlaps(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
+    """True if time windows overlap (inclusive)."""
+    return not (a_end <= b_start or b_end <= a_start)
+
+
+def provider_available_on_shift(session: Session, provider_id: int, shift: Shift) -> bool:
+    """
+    Very simple availability check:
+    - Day-of-week matches any availability row for that provider
+    - The shift’s time falls within the availability time window (same day)
+    NOTE: Availability rows are weekday + start/end (time only).
+    """
+    weekday = shift.starts.weekday()  # Monday=0..Sunday=6
+
+    avails = session.exec(
+        select(ProviderAvailability).where(
+            ProviderAvailability.provider_id == provider_id,
+            ProviderAvailability.weekday == weekday,
+        )
+    ).all()
+
+    if not avails:
+        return False
+
+    # Compare time-of-day only
+    s_time = shift.starts.time()
+    e_time = shift.ends.time()
+    for a in avails:
+        if (a.start <= s_time) and (e_time <= a.end):
+            return True
+    return False
+
+
+def provider_has_conflict(session: Session, provider_id: int, shift: Shift) -> bool:
+    #If provider already has an assignment or an overlap, return True
+    existing = session.exec(
+        select(Assignment).where(Assignment.provider_id == provider_id)
+    ).all()
+    if not existing:
+        return False
+
+    # Get all those shifts and check overlap
+    shift_ids = [a.shift_id for a in existing if a.shift_id is not None]
+    if not shift_ids:
+        return False
+
+    other_shifts = session.exec(
+        select(Shift).where(Shift.id.in_(shift_ids))
+    ).all()
+
+    for s in other_shifts:
+        if overlaps(shift.starts, shift.ends, s.starts, s.ends):
+            return True
+    return False
+
 
 @router.post("/run")
-def run_scheduler(start: str, end: str):
-    # TO-DO: Incorporate LLM and OR tools to create shifts and assign providers
-    return {"status": "ok", "message": f"Scheduler ran from {start} to {end}"}
+def run_scheduler(
+    start: datetime = Query(..., description="ISO start of scheduling window"),
+    end: datetime = Query(..., description="ISO end of scheduling window"),
+    session: Session = Depends(get_session),
+):
+    #Considers all unfilled shifts, then picks the closest provider based on zipcode who is available and isn't double booked
 
+    # Load available providers
+    providers = session.exec(select(Provider).where(Provider.active == True)).all()
+
+    # Load shifts in window
+    shifts = session.exec(
+        select(Shift).where(Shift.starts >= start, Shift.ends <= end)
+    ).all()
+
+    # Preload assignments to see which shifts already have a provider
+    assigned_shift_ids = set(
+        a.shift_id for a in session.exec(select(Assignment)).all() if a.shift_id is not None
+    )
+
+    created = 0
+    for sh in shifts:
+        if sh.id in assigned_shift_ids:
+            continue  # already has an assignment
+
+        # Filter providers by skill match (CSV contains required skill)
+        candidates = []
+        for p in providers:
+            if not p.skills:
+                continue
+            # required_skills is a single string for your model; check simple substring or split
+            skill_ok = any(
+                s.strip().lower() == sh.required_skills.strip().lower()
+                for s in p.skills.split(",")
+            )
+            if not skill_ok:
+                continue
+
+            if not provider_available_on_shift(session, p.id, sh):
+                continue
+            if provider_has_conflict(session, p.id, sh):
+                continue
+
+            dist = zip_distance(p.home_zip, sh.zip)
+            candidates.append((dist, p))
+
+        if not candidates:
+            # nobody fits – leave unfilled
+            continue
+
+        # pick nearest
+        candidates.sort(key=lambda t: t[0])
+        _, chosen = candidates[0]
+
+        session.add(
+            Assignment(
+                shift_id=sh.id,
+                provider_id=chosen.id,
+                status="confirmed",
+                message=f"Auto-scheduled (distance {candidates[0][0]:.1f} mi)",
+            )
+        )
+        created += 1
+
+    session.commit()
+    return {"assigned": created, "total_considered": len(shifts)}
