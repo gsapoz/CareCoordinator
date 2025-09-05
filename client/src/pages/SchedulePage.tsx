@@ -86,8 +86,8 @@ export default function SchedulePage() {
   const generateData = useMutation({
     mutationFn: async () =>
       (await axios.post(`${BASE_URL}/ai/autogen`, {
-        n_providers: 8,   // tweak if you want
-        n_shifts: 16,     // tweak if you want
+        n_providers: 8,   
+        n_shifts: 16,     
         zip_pool: ["98101","98103","98107","98109","98115","98052"]
       })).data,
     onSuccess: () => {
@@ -191,7 +191,7 @@ export default function SchedulePage() {
       <div className="sheet">
         <div className="toolbar">
           <div>
-            <div className="title">Provider Schedule</div>
+            <div className="title">Provider Appointment Scheduler</div>
             <div className="meta">Click "Run Scheduler" to automatically assign Providers to Shifts</div>
             <div className="meta">Click "Generate Data" to automatically generate Providers and Shifts</div>
           </div>
@@ -281,7 +281,8 @@ export default function SchedulePage() {
 
         {/* Provider Assignments  */}
         <div style={{ marginTop: 14 }}>
-          <div className="sectionTitle">Provider Assignments</div>
+          <div className="sectionTitle">Provider Shift Assignments</div>
+          
           {asgLoading && <div className="muted">Loading…</div>}
           {asgError && <div className="err">Failed to load assignments.</div>}
           <div className="tablewrap">
