@@ -1,4 +1,3 @@
-# server/routers/shifts.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from datetime import datetime, timezone
