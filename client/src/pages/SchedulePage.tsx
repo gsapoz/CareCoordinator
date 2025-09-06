@@ -34,7 +34,7 @@ const BASE_URL = "http://localhost:8000";
 type Shift = { 
   id: number; 
   //case_id: number; 
-  family_id: Int16Array;
+  family_id: number;
   starts: string; 
   ends: string; 
   zip: string; 
@@ -64,6 +64,7 @@ type Assignment = {
   message?: string 
 };
 
+
 export default function SchedulePage() {
   const qc = useQueryClient();
 
@@ -86,6 +87,29 @@ export default function SchedulePage() {
     queryKey: ["assignments"],
     queryFn: async (): Promise<Assignment[]> => (await axios.get(`${BASE_URL}/assignments`)).data,
   });
+
+  //query helpers 
+  const provById = useMemo(() => {
+    const m = new Map<number, Provider>();
+    providers.forEach(p => m.set(p.id, p));
+    return m;
+  }, [providers]);
+
+  const famById = useMemo(() => {
+    const m = new Map<number, Family>();
+    families.forEach(f => m.set(f.id, f));
+    return m;
+  }, [families]);
+
+  const shiftById = useMemo(() => {
+    const m = new Map<number, Shift>();
+    shifts.forEach(s => m.set(s.id, s));
+    return m;
+  }, [shifts]);
+
+  const fmt = (iso?: string) =>
+    iso ? new Date(iso).toLocaleString() : "—";
+
 
   const run = useMutation({
     mutationFn: async () => (await axios.post(`${BASE_URL}/schedule/run`)).data,
@@ -329,31 +353,48 @@ export default function SchedulePage() {
         {/* Provider Assignments  */}
         <div style={{ marginTop: 14 }}>
           <div className="sectionTitle">Provider Shift Assignments</div>
-          
+
           {asgLoading && <div className="muted">Loading…</div>}
           {asgError && <div className="err">Failed to load assignments.</div>}
+
           <div className="tablewrap">
             <table>
               <thead>
                 <tr>
-                  <th>Shift</th><th>Provider</th><th>Status</th><th>Message</th>
+                  <th>Shift</th>
+                  <th>Start time</th>
+                  <th>End time</th>
+                  <th>Family (Case ID)</th>
+                  <th>Provider</th>
+                  <th>Status</th>
+                  {/* <th>Message</th>  */}
                 </tr>
               </thead>
               <tbody>
-                {assignments.length > 0 ? assignments.map((a) => (
-                  <tr key={a.id ?? a.shift_id}>
-                    <td>{a.shift_id}</td>
-                    <td>{a.provider_id ?? <span className="muted">unfilled</span>}</td>
-                    <td>{a.status ?? ""}</td>
-                    <td className="muted">{a.message || ""}</td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan={4} className="muted">No assignments.</td></tr>
+                {assignments.length > 0 ? assignments.map((a) => {
+                  const sh = a.shift_id ? shiftById.get(a.shift_id) : undefined;
+                  const fam = sh?.family_id ? famById.get(sh.family_id) : undefined;
+                  const prov = a.provider_id != null ? provById.get(a.provider_id) : undefined;
+
+                  return (
+                    <tr key={a.id ?? a.shift_id}>
+                      <td>{a.shift_id ?? "—"}</td>
+                      <td>{fmt(sh?.starts)}</td>
+                      <td>{fmt(sh?.ends)}</td>
+                      <td>{fam ? `${fam.name} (${fam.id})` : "—"}</td>
+                      <td>{prov ? prov.name : <span className="muted">unfilled</span>}</td>
+                      <td>{a.status ?? ""}</td>
+                      {/* <td className="muted">{a.message || ""}</td> */}
+                    </tr>
+                  );
+                }) : (
+                  <tr><td colSpan={7} className="muted">No assignments.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
       </div>
     </>
   );
