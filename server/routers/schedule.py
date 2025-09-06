@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlmodel import Session, select, col
 
 from server.db import get_session
-from server.models import Provider, ProviderAvailability, Shift, Assignment
+from server.models import Provider, ProviderAvailability, Shift, Assignment, Family
 
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 
