@@ -284,6 +284,9 @@ export default function ProvidersPage() {
             <div className="title">Providers</div>
             <div className="muted">Add and View Providers</div>
           </div>
+          <a href="../">
+            <button>Back to Home Page</button>
+          </a>
         </div>
 
         <form className="form" onSubmit={handleCreate}>

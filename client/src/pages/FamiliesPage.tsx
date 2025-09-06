@@ -69,6 +69,9 @@ export default function FamiliesPage() {
             <div className="title">Families</div>
             <div className="muted">Create and view families; preference drives continuity scheduling.</div>
           </div>
+         <a href="../">
+          <button>Back to Home Page</button>
+        </a>
         </div>
 
         <form

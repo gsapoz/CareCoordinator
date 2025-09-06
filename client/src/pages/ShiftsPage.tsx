@@ -140,6 +140,9 @@ export default function ShiftsPage() {
             <div className="title">Shifts</div>
             <div className="muted">Create and manage available shifts for providers to fill for families</div>
           </div>
+          <a href="../">
+            <button>Back to Home Page</button>
+          </a>
         </div>
 
         <form className="form" onSubmit={handleCreate}>
