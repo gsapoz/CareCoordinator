@@ -1,87 +1,56 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const BASE_URL = "http://localhost:8000";
-// #Problem 3
-// #A family urgently needed overnight newborn care support, but the coordinator spent 3 hours calling providers to find someone available and qualified. 
-// # Two providers showed up because of a miscommunication. Another family complained that they've had 5 different providers in one week when they specifically requested consistency.
-// class Case(SQLModel, table=True):
-//     id: Optional[int] = Field(default=None, primary_key=True)
-//     family_id: int = Field(foreign_key="family.id")
-//     title: str #Title of request
-//     required_skills: str #"doulas", "lactation consultants", "nurses" 
-    
-// class Shift(SQLModel, table=True):
-//     id: Optional[int] = Field(default=None, primary_key=True)
-//     case_id: int = Field(foreign_key="case.id")
-//     starts: datetime #start time
-//     ends: datetime #end time
-//     zip: str #location of shift 
-//     required_skills: str #"doulas", "lactation consultants", "nurses"
-    
-// class Assignment(SQLModel, table=True):
-//     id: Optional[int] = Field(default=None, primary_key=True)
-//     shift_id: int = Field(foreign_key="shift.id")
-//     provider_id: int = Field(foreign_key="provider.id")
-//     status: str = "requested" #"requested", "confirmed", "declined"
-//     message: str = "" #description for assignment given by provider
- 
-//     #Unique Constraint to prevent provider being added to the same shift twice
-//     __table_args__ = (UniqueConstraint("shift_id", "provider_id", name="uq_shift_provider")),
 
-
-// type Shift = {
-//   id?: number;
-//   case_id: number;
-//   starts: string; 
-//   ends: string;   
-//   zip: string;
-//   required_skills: string; // 
-// };
-
-// export default function ShiftsPage() {
-//   const qc = useQueryClient();
-
-
-//   return (
-//     <div/>
-//   )
-// }
+type Family = {
+  id: number;
+  name: string;
+  zip: string;
+  continuity_preference: string;
+};
 
 type Shift = {
   id?: number;
-  // case_id: number;
-  starts: string;        
-  ends: string;          
+  family_id: number;
+  starts: string;
+  ends: string;
   zip: string;
-  required_skills: string; 
+  required_skills: string;
 };
 
-const SKILL_OPTIONS = [
-  "Doula",
-  "Nurse", 
-  "Lactation Consultant"
-] as const;
+const SKILL_OPTIONS = ["Doula", "Nurse", "Lactation Consultant"] as const;
 
 export default function ShiftsPage() {
   const qc = useQueryClient();
 
-  // ---- Query ----
+  // ---- Queries ----
   const { data: shifts = [], isLoading, error } = useQuery({
     queryKey: ["shifts"],
     queryFn: async (): Promise<Shift[]> => (await axios.get(`${BASE_URL}/shifts`)).data,
   });
 
+  const { data: families = [], isLoading: famLoading, error: famError } = useQuery({
+    queryKey: ["families"],
+    queryFn: async (): Promise<Family[]> => (await axios.get(`${BASE_URL}/families`)).data,
+  });
+
+  const familyMap = useMemo(() => {
+    const m = new Map<number, Family>();
+    for (const f of families) m.set(f.id, f);
+    return m;
+  }, [families]);
+
   // ---- Form state ----
   const [form, setForm] = useState<{
-    // case_id: string;
-    startsLocal: string; // "YYYY-MM-DDTHH:mm"
-    endsLocal: string;   // "YYYY-MM-DDTHH:mm"
+    family_id: string;       // selected family id (string in form)
+    startsLocal: string;     // "YYYY-MM-DDTHH:mm"
+    endsLocal: string;       // "YYYY-MM-DDTHH:mm"
     zip: string;
     required_skills: string;
   }>({
-    // case_id: "",
+    family_id: "",
     startsLocal: "",
     endsLocal: "",
     zip: "",
@@ -94,22 +63,16 @@ export default function ShiftsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
   });
 
-  const deleteShift = useMutation({
-    mutationFn: async (id: number) => (await axios.delete(`${BASE_URL}/shifts/${id}`)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
-  });
-
   // ---- Helpers ----
   const canSubmit =
-    // form.case_id.trim().length > 0 &&
+    form.family_id.trim().length > 0 &&
     form.startsLocal.trim().length > 0 &&
     form.endsLocal.trim().length > 0 &&
-    form.zip.trim().length >= 5;
+    form.zip.trim().length >= 5 &&
+    form.required_skills.trim().length > 0;
 
   function toISO(localValue: string) {
-    // local datetime -> ISO string
-    // new Date(localValue) interprets as local time
-    const d = new Date(localValue);
+    const d = new Date(localValue); // interpreted as local time
     return d.toISOString();
   }
 
@@ -118,7 +81,7 @@ export default function ShiftsPage() {
     if (!canSubmit) return;
 
     const payload: Shift = {
-      // case_id: Number(form.case_id),
+      family_id: Number(form.family_id),
       starts: toISO(form.startsLocal),
       ends: toISO(form.endsLocal),
       zip: form.zip.trim(),
@@ -129,7 +92,7 @@ export default function ShiftsPage() {
 
     // reset
     setForm({
-      // case_id: "",
+      family_id: "",
       startsLocal: "",
       endsLocal: "",
       zip: "",
@@ -156,7 +119,7 @@ export default function ShiftsPage() {
 
         .form { border:1px solid #d0d7de; border-radius:4px; padding:10px; display:grid; grid-template-columns: repeat(8, 1fr); gap:8px; align-items:end; }
         .form label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#444; }
-        .form input[type="text"], .form input[type="number"], .form input[type="datetime-local"] { border:1px solid #c8cdd4; border-radius:4px; padding:6px 8px; font-size:13px; }
+        .form input[type="text"], .form input[type="number"], .form input[type="datetime-local"], .form select { border:1px solid #c8cdd4; border-radius:4px; padding:6px 8px; font-size:13px; }
         .btn { appearance:none; border:1px solid #c8cdd4; background:#f6f8fa; padding:6px 10px; border-radius:4px; font-size:12px; cursor:pointer; }
         .btn:hover { background:#eef1f4; }
         .btn[disabled]{ opacity:.6; cursor:not-allowed; }
@@ -179,18 +142,22 @@ export default function ShiftsPage() {
           </div>
         </div>
 
-        {/* To-DO: In production environment we need a more detailed form since families would be the ones to request these Provider shifts */}
         <form className="form" onSubmit={handleCreate}>
-          {/* <label>
-            Case ID
-            <input
-              type="number"
-              value={form.case_id}
-              onChange={(e) => setForm({ ...form, case_id: e.target.value })}
-              placeholder="e.g. 1"
-              min={1}
-            />
-          </label> */}
+          <label>
+            Family
+            <select
+              value={form.family_id}
+              onChange={(e) => setForm({ ...form, family_id: e.target.value })}
+              disabled={famLoading || !!famError}
+            >
+              <option value="">{famLoading ? "Loading families…" : "Select a family…"}</option>
+              {families.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name} (#{f.id}) – {f.zip}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label>
             Starts
@@ -216,7 +183,7 @@ export default function ShiftsPage() {
               type="text"
               value={form.zip}
               onChange={(e) => setForm({ ...form, zip: e.target.value })}
-              placeholder="98107"
+              placeholder="98101, 98102, 98103 ..."
             />
           </label>
 
@@ -234,11 +201,11 @@ export default function ShiftsPage() {
           </label>
 
           <div />
-          <div />
-
           <button className="btn" type="submit" disabled={!canSubmit || createShift.isPending}>
             {createShift.isPending ? "Saving…" : "Add Shift"}
           </button>
+
+          {famError && <div className="err" style={{ gridColumn: "1 / -1" }}>Failed to load families.</div>}
         </form>
 
         <div className="tablewrap">
@@ -246,58 +213,37 @@ export default function ShiftsPage() {
             <thead>
               <tr>
                 <th>ID</th>
-                {/* <th>Case</th> */}
+                <th>Case ID (Family))</th>
                 <th>Begins</th>
                 <th>Ends</th>
                 <th>ZIP</th>
                 <th>Skills</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={6} className="muted">Loading…</td></tr>
+                <tr><td colSpan={7} className="muted">Loading…</td></tr>
               )}
               {error && (
-                <tr><td colSpan={6} className="err">Failed to load shifts.</td></tr>
+                <tr><td colSpan={7} className="err">Failed to load shifts.</td></tr>
               )}
               {!isLoading && !error && shifts.length === 0 && (
-                <tr><td colSpan={6} className="muted">No shifts yet.</td></tr>
+                <tr><td colSpan={7} className="muted">No shifts yet.</td></tr>
               )}
 
-              {shifts.map((s) => (
-                <tr key={s.id}>
-                  <td>#{s.id}</td>
-                  {/* <td>{s.case_id}</td> */}
-                  <td>
-                    <div>
-                      <div>{fmt(s.starts)}</div>
-                    </div>
-                  </td>
-                  <td>
-                    <div>
-                      <div>{fmt(s.ends)}</div>
-                    </div>
-                  </td>
-                  <td>{s.zip}</td>
-                  <td>{s.required_skills || "—"}</td>
-                  <td>
-                    <div className="rowactions">
-                      <button
-                        className="btn"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (s.id) deleteShift.mutate(s.id);
-                        }}
-                        disabled={deleteShift.isPending}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
+              {shifts.map((s) => {
+                const fam = s.family_id ? familyMap.get(s.family_id) : undefined;
+                return (
+                  <tr key={s.id}>
+                    <td>{s.id}</td>
+                    <td>{fam ? `${fam.id} (${fam.name})` : s.family_id ?? "—"}</td>
+                    <td>{fmt(s.starts)}</td>
+                    <td>{fmt(s.ends)}</td>
+                    <td>{s.zip}</td>
+                    <td>{s.required_skills || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

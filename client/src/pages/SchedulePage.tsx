@@ -233,6 +233,8 @@ export default function SchedulePage() {
           <div>
             <div className="sectionTitle">Families</div>
             <div className="meta">Generated families appear here. These IDs are used as the “case number” on shifts.</div>
+            <div className="meta">Click "Generate Data" in the header to automatically generate Families</div>
+            <div className="meta">To manually add and track your own proivders, <a href="families">click here</a></div>
             {famLoading && <div className="muted">Loading…</div>}
             {famError && <div className="err">Failed to load families.</div>}
             <div className="tablewrap">
@@ -258,6 +260,7 @@ export default function SchedulePage() {
             </div>
           </div>
           
+          <br />
           {/* Providers */}
           <div>
             <div className="sectionTitle">Providers</div>
