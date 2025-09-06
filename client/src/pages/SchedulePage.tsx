@@ -34,6 +34,7 @@ const BASE_URL = "http://localhost:8000";
 type Shift = { 
   id: number; 
   //case_id: number; 
+  family_id: Int16Array;
   starts: string; 
   ends: string; 
   zip: string; 
@@ -46,6 +47,13 @@ type Provider = {
   home_zip: string;
   active: boolean;
   skills: string; // CSV
+};
+
+type Family = {
+  id: number;
+  name: string;
+  zip: string;
+  continuity_preference: string; // e.g. "consistent" | "flexible"
 };
 
 type Assignment = { 
@@ -69,6 +77,11 @@ export default function SchedulePage() {
     queryFn: async (): Promise<Provider[]> => (await axios.get(`${BASE_URL}/providers`)).data,
   });
 
+  const { data: families = [], isLoading: famLoading, error: famError } = useQuery({
+    queryKey: ["families"],
+    queryFn: async (): Promise<Family[]> => (await axios.get(`${BASE_URL}/families`)).data,
+  });
+
   const { data: assignments = [], isLoading: asgLoading, error: asgError } = useQuery({
     queryKey: ["assignments"],
     queryFn: async (): Promise<Assignment[]> => (await axios.get(`${BASE_URL}/assignments`)).data,
@@ -85,14 +98,16 @@ export default function SchedulePage() {
   const generateData = useMutation({
     mutationFn: async () =>
       (await axios.post(`${BASE_URL}/ai/autogen`, {
-        n_providers: 8,   
-        n_shifts: 16,     
-        zip_pool: ["98101","98103","98107","98109","98115","98052"]
+        n_providers: 8,
+        n_shifts: 16,
+        n_families: 10, // 👈 add this
+        zip_pool: ["98101","98103","98107","98109","98115","98052"],
       })).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["providers"] });
       qc.invalidateQueries({ queryKey: ["shifts"] });
       qc.invalidateQueries({ queryKey: ["assignments"] });
+      qc.invalidateQueries({ queryKey: ["families"] }); // 👈 refresh families too
     },
   });
 
@@ -214,6 +229,35 @@ export default function SchedulePage() {
 
         <div className="grid2">
 
+          {/* Families */}
+          <div>
+            <div className="sectionTitle">Families</div>
+            <div className="meta">Generated families appear here. These IDs are used as the “case number” on shifts.</div>
+            {famLoading && <div className="muted">Loading…</div>}
+            {famError && <div className="err">Failed to load families.</div>}
+            <div className="tablewrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Name</th><th>ZIP</th><th>Preference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {families.length > 0 ? families.map((f) => (
+                    <tr key={f.id}>
+                      <td>#{f.id}</td>
+                      <td>{f.name}</td>
+                      <td>{f.zip}</td>
+                      <td>{f.continuity_preference || "—"}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={4} className="muted">No families.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
           {/* Providers */}
           <div>
             <div className="sectionTitle">Providers</div>
@@ -231,7 +275,7 @@ export default function SchedulePage() {
                 <tbody>
                   {providers.length > 0 ? providers.map((p) => (
                     <tr key={p.id}>
-                      <td>#{p.id}</td>
+                      <td>{p.id}</td>
                       <td>{p.name}</td>
                       <td>{p.home_zip}</td>
                       <td>{p.skills || "—"}</td>
@@ -257,13 +301,14 @@ export default function SchedulePage() {
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th><th>Starts</th><th>Ends</th><th>Required Skill</th><th>ZIP</th>
+                    <th>ID</th><th>Case ID</th><th>Starts</th><th>Ends</th><th>Required Skill</th><th>ZIP</th>
                   </tr>
                 </thead>
                 <tbody>
                   {shifts.length > 0 ? shifts.map((s) => (
                     <tr key={s.id}>
-                      <td>#{s.id}</td>
+                      <td>{s.id}</td>
+                      <td>{s.family_id}</td>
                       <td>{new Date(s.starts).toLocaleString()}</td>
                       <td>{new Date(s.ends).toLocaleString()}</td>
                       <td>{s.required_skills}</td>
@@ -294,7 +339,7 @@ export default function SchedulePage() {
               <tbody>
                 {assignments.length > 0 ? assignments.map((a) => (
                   <tr key={a.id ?? a.shift_id}>
-                    <td>#{a.shift_id}</td>
+                    <td>{a.shift_id}</td>
                     <td>{a.provider_id ?? <span className="muted">unfilled</span>}</td>
                     <td>{a.status ?? ""}</td>
                     <td className="muted">{a.message || ""}</td>
